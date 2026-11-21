@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# PyInstaller (o .exe é publicado nas Releases, não no repositório)
+build/
+dist/
+*.spec
+
+# Editor / sistema
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

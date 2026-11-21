@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Confirmar que a tag bate certo com versao.py
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $versao = python -c "from versao import VERSAO; print(VERSAO)"
+          if ("v$versao" -ne "${{ github.ref_name }}") {
+            throw "A tag ${{ github.ref_name }} não corresponde a versao.py ($versao)."
+          }
+
+      - name: Gerar o .exe
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Guardar o .exe como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: OtimizadorPC
+          path: dist/OtimizadorPC.exe
+
+      - name: Criar Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/OtimizadorPC.exe
+          generate_release_notes: true
+          body: |
+            Saca o OtimizadorPC.exe e abre, não precisa de instalação.
+            Se aparecer o aviso do SmartScreen: Mais informações > Executar mesmo assim.
