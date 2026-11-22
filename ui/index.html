@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Otimizador de PC</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-inicio" viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9"/></symbol>
+    <symbol id="i-limpeza" viewBox="0 0 24 24"><path d="M11 3.5 12.9 8.6 18 10.5l-5.1 1.9L11 17.5l-1.9-5.1L4 10.5l5.1-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><path d="M3 12h3.5l2.5-7 4 14 2.5-7H21"/></symbol>
+    <symbol id="i-arranque" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="19" height="11" rx="5.5"/><circle cx="16" cy="12" r="2.5"/></symbol>
+    <symbol id="i-energia" viewBox="0 0 24 24"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12z"/></symbol>
+    <symbol id="i-disco" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 14h18"/><path d="M7 17h.01M10.5 17h.01"/></symbol>
+    <symbol id="i-memoria" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7v10M11 7v10M15 7v10M5 17v3M19 17v3"/></symbol>
+    <symbol id="i-seta" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+    <symbol id="i-lixo" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-atualizar" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></symbol>
+    <symbol id="i-parar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+    <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-aviso" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <aside class="lateral">
+    <div class="marca">
+      <span class="logo"><svg viewBox="0 0 24 24"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12z"/></svg></span>
+      <span class="marca-nome">Otimizador</span>
+    </div>
+
+    <nav class="menu" aria-label="Secções">
+      <span class="indicador" aria-hidden="true"></span>
+      <button class="item" data-pagina="inicio" title="Início"><svg class="ic"><use href="#i-inicio"/></svg><span>Início</span></button>
+      <button class="item" data-pagina="limpeza" title="Limpeza"><svg class="ic"><use href="#i-limpeza"/></svg><span>Limpeza</span></button>
+      <button class="item" data-pagina="monitor" title="Monitorização"><svg class="ic"><use href="#i-monitor"/></svg><span>Monitorização</span></button>
+      <button class="item" data-pagina="arranque" title="Arranque"><svg class="ic"><use href="#i-arranque"/></svg><span>Arranque</span></button>
+      <button class="item" data-pagina="energia" title="Energia"><svg class="ic"><use href="#i-energia"/></svg><span>Energia</span></button>
+    </nav>
+
+    <div class="rodape">
+      <div class="admin" id="admin"></div>
+      <p class="admin-nota" id="admin-nota" hidden>Algumas pastas e programas do Windows não vão poder ser alterados.</p>
+      <p class="versao" id="versao"></p>
+    </div>
+  </aside>
+
+  <main class="conteudo" id="conteudo">
+    <div class="miolo">
+
+      <!-- Início -->
+      <section class="pagina" id="pagina-inicio">
+        <header class="cabecalho">
+          <h1>Início</h1>
+          <p>O estado do seu PC e otimização num clique.</p>
+        </header>
+
+        <div class="bento bento-inicio">
+          <div class="cartao hero" data-spot style="--i:0">
+            <div class="hero-texto">
+              <span class="rotulo"><svg class="ic"><use href="#i-limpeza"/></svg>Otimização rápida</span>
+              <h2>Otimizar tudo</h2>
+              <p>Limpa temporários, relatórios de erros e as caches do Chrome e do Edge (se estiverem fechados).
+                 Não mexe na Reciclagem, no Windows Update nem nos programas de arranque.</p>
+            </div>
+            <div class="hero-acao">
+              <button class="botao grande magnetico" id="ini-otimizar"><svg class="ic"><use href="#i-energia"/></svg><span>Otimizar agora</span></button>
+              <div class="hero-progresso">
+                <div class="barra" id="ini-barra"><i></i></div>
+                <p class="estado" id="ini-estado">Pronto.</p>
+              </div>
+            </div>
+          </div>
+
+          <article class="cartao disco" data-spot style="--i:1">
+            <span class="rotulo"><svg class="ic"><use href="#i-disco"/></svg>Disco do sistema</span>
+            <div class="metrica" id="ini-disco"><span class="esqueleto"></span></div>
+            <p class="sub" id="ini-disco-sub">&nbsp;</p>
+            <div class="barra uso" id="ini-disco-barra"><i></i></div>
+            <div class="legenda">
+              <span><b class="chave usado"></b>Usado <span class="mono" id="ini-disco-usado">—</span></span>
+              <span><b class="chave"></b>Livre <span class="mono" id="ini-disco-livre">—</span></span>
+            </div>
+            <button class="link" data-ir="limpeza">Abrir Limpeza <svg class="ic"><use href="#i-seta"/></svg></button>
+          </article>
+
+          <article class="cartao stat" data-spot style="--i:2">
+            <span class="rotulo"><svg class="ic"><use href="#i-arranque"/></svg>Programas de arranque</span>
+            <div class="metrica media" id="ini-arranque"><span class="esqueleto"></span></div>
+            <p class="sub" id="ini-arranque-sub">&nbsp;</p>
+            <button class="link" data-ir="arranque">Gerir arranque <svg class="ic"><use href="#i-seta"/></svg></button>
+          </article>
+
+          <article class="cartao stat" data-spot style="--i:3">
+            <span class="rotulo"><svg class="ic"><use href="#i-energia"/></svg>Plano de energia</span>
+            <div class="metrica texto" id="ini-energia"><span class="esqueleto"></span></div>
+            <p class="sub">Plano ativo neste momento</p>
+            <button class="link" data-ir="energia">Mudar plano <svg class="ic"><use href="#i-seta"/></svg></button>
+          </article>
+
+          <article class="cartao resultados-cartao" style="--i:4">
+            <h3 class="cartao-titulo">Último resultado</h3>
+            <div class="resultados" id="ini-resultados"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Limpeza -->
+      <section class="pagina" id="pagina-limpeza">
+        <header class="cabecalho">
+          <h1>Limpeza</h1>
+          <p>Analise primeiro. Nada é apagado até carregar em Limpar.</p>
+        </header>
+
+        <div class="cartao resumo" style="--i:0">
+          <div class="resumo-texto">
+            <span class="rotulo"><svg class="ic"><use href="#i-limpeza"/></svg>Espaço recuperável</span>
+            <div class="metrica" id="lim-total">—</div>
+            <p class="estado" id="lim-estado">Carregue em Analisar para ver quanto espaço pode libertar</p>
+            <div class="barra" id="lim-barra"><i></i></div>
+          </div>
+          <div class="acoes">
+            <button class="botao secundario" id="lim-analisar"><svg class="ic"><use href="#i-lupa"/></svg><span>Analisar</span></button>
+            <button class="botao magnetico" id="lim-limpar" disabled><svg class="ic"><use href="#i-lixo"/></svg><span>Limpar selecionado</span></button>
+          </div>
+        </div>
+
+        <div class="cartao lista" id="lim-lista" style="--i:1"></div>
+      </section>
+
+      <!-- Monitorização -->
+      <section class="pagina" id="pagina-monitor">
+        <header class="cabecalho cabecalho-linha">
+          <div>
+            <h1>Monitorização</h1>
+            <p>Atualiza a cada 2 segundos.</p>
+          </div>
+          <span class="ao-vivo">Ao vivo</span>
+        </header>
+
+        <div class="bento bento-monitor">
+          <article class="cartao cpu" data-spot style="--i:0">
+            <div class="cpu-topo">
+              <div>
+                <span class="rotulo"><svg class="ic"><use href="#i-monitor"/></svg>Processador</span>
+                <div class="metrica" id="mon-cpu">—</div>
+                <p class="sub">Utilização total · últimos 2 minutos</p>
+              </div>
+            </div>
+            <div class="grafico" id="mon-grafico">
+              <svg preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="g-area" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#4f93e6" stop-opacity=".22"/>
+                    <stop offset="1" stop-color="#4f93e6" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <g class="grelha-linhas"><line/><line/><line/></g>
+                <path class="area" d=""/>
+                <path class="linha-g" d=""/>
+                <line class="cursor"/>
+              </svg>
+              <span class="ponto"></span>
+              <span class="dica"></span>
+              <span class="eixo e100">100%</span><span class="eixo e50">50%</span><span class="eixo e0">0%</span>
+            </div>
+          </article>
+
+          <article class="cartao medidor" id="mon-ram" data-spot style="--i:1"></article>
+          <article class="cartao medidor" id="mon-disco" data-spot style="--i:2"></article>
+        </div>
+
+        <div class="cartao" style="--i:3">
+          <div class="cartao-cabeca">
+            <h3 class="cartao-titulo">Processos que mais memória usam</h3>
+            <button class="botao perigo pequeno" id="mon-terminar" disabled><svg class="ic"><use href="#i-parar"/></svg><span>Terminar processo</span></button>
+          </div>
+          <div class="tabela" id="mon-tabela" tabindex="0" aria-label="Processos. Use as setas para escolher.">
+            <div class="tabela-cabeca"><span>Processo</span><span class="num">PID</span><span class="num">Memória</span></div>
+            <div class="tabela-corpo" id="mon-corpo"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Arranque -->
+      <section class="pagina" id="pagina-arranque">
+        <header class="cabecalho">
+          <h1>Programas de arranque</h1>
+          <p>Desligue o que não precisa de abrir com o Windows. Nada é apagado e pode voltar a ligar.</p>
+        </header>
+
+        <div class="cartao resumo" style="--i:0">
+          <div class="resumo-texto linha-resumo">
+            <span class="metrica" id="arr-ativos">—</span>
+            <span class="estado" id="arr-sub"></span>
+          </div>
+          <button class="botao secundario" id="arr-atualizar"><svg class="ic"><use href="#i-atualizar"/></svg><span>Atualizar</span></button>
+        </div>
+
+        <div class="cartao lista" id="arr-lista" style="--i:1"></div>
+      </section>
+
+      <!-- Energia -->
+      <section class="pagina" id="pagina-energia">
+        <header class="cabecalho">
+          <h1>Plano de energia</h1>
+          <p>Para jogos e trabalho pesado, use um plano de alto desempenho.</p>
+        </header>
+        <div class="cartao lista" id="ene-lista" style="--i:0"></div>
+        <div class="extra" id="ene-extra" hidden style="--i:1">
+          <p>O plano Alto desempenho está escondido neste PC.</p>
+          <button class="botao secundario" id="ene-adicionar"><svg class="ic"><use href="#i-mais"/></svg><span>Adicionar Alto desempenho</span></button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal-fundo" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <span class="modal-icone" id="modal-icone"><svg class="ic"><use href="#i-aviso"/></svg></span>
+    <h2 id="modal-titulo"></h2>
+    <p id="modal-texto"></p>
+    <ul id="modal-itens"></ul>
+    <p id="modal-nota"></p>
+    <div class="modal-acoes">
+      <button class="botao secundario" id="modal-cancelar">Cancelar</button>
+      <button class="botao" id="modal-ok">Continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

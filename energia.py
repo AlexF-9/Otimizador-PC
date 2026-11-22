@@ -1,10 +1,6 @@
 import re
 import subprocess
-import tkinter as tk
 import winreg
-from tkinter import messagebox
-
-import tema as t
 
 CREATE_NO_WINDOW = 0x08000000
 ALTO_DESEMPENHO = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
@@ -53,57 +49,3 @@ def plano_ativo():
 
 def ativar(guid):
     return _powercfg("/setactive", guid)
-
-
-class Energia(tk.Frame):
-    def __init__(self, master):
-        super().__init__(master, bg=t.BG)
-        t.cabecalho(self, "Plano de energia",
-                    "Para jogos e trabalho pesado, use um plano de alto desempenho.")
-        self.cartao = t.Cartao(self, pad=0)
-        self.cartao.pack(fill="x", padx=28)
-        self.extra = tk.Frame(self, bg=t.BG)
-        self.extra.pack(fill="x", padx=28, pady=14)
-        self.carregar()
-
-    def ao_mostrar(self):
-        self.carregar()
-
-    def carregar(self):
-        for w in (*self.cartao.winfo_children(), *self.extra.winfo_children()):
-            w.destroy()
-        lista = planos()
-        for i, (guid, nome, ativo) in enumerate(lista):
-            if i:
-                tk.Frame(self.cartao, bg=t.BORDA, height=1).pack(fill="x")
-            linha = tk.Frame(self.cartao, bg=t.CARTAO, padx=18, pady=12)
-            linha.pack(fill="x")
-            ponto = tk.Canvas(linha, width=14, height=14, bg=t.CARTAO, highlightthickness=0)
-            ponto.create_oval(2, 2, 12, 12, fill=t.VERDE if ativo else t.BORDA, outline="")
-            ponto.pack(side="left")
-            txt = tk.Frame(linha, bg=t.CARTAO)
-            txt.pack(side="left", padx=14, fill="x", expand=True)
-            tk.Label(txt, text=nome, font=t.fonte(11, "bold"), bg=t.CARTAO, fg=t.TEXTO, anchor="w").pack(fill="x")
-            desc = DESCRICOES.get(guid, "Plano criado pelo fabricante ou por si.")
-            tk.Label(txt, text=desc, font=t.fonte(9), bg=t.CARTAO, fg=t.SUAVE, anchor="w").pack(fill="x")
-            if ativo:
-                tk.Label(linha, text="Ativo", font=t.fonte(9, "bold"), bg=t.CARTAO, fg=t.VERDE).pack(side="right")
-            else:
-                t.Botao(linha, "Ativar", lambda g=guid: self._ativar(g), tipo="secundario").pack(side="right")
-        if not any(g == ALTO_DESEMPENHO for g, _, _ in lista):
-            tk.Label(self.extra, text="O plano Alto desempenho está escondido neste PC.", font=t.fonte(9),
-                     bg=t.BG, fg=t.SUAVE).pack(side="left")
-            t.Botao(self.extra, "Adicionar Alto desempenho", self._adicionar, tipo="secundario").pack(side="right")
-
-    def _ativar(self, guid):
-        ok, msg = ativar(guid)
-        if not ok:
-            messagebox.showerror("Erro", msg or "Não foi possível mudar o plano.")
-        self.carregar()
-
-    def _adicionar(self):
-        if messagebox.askyesno("Adicionar plano", "Criar o plano 'Alto desempenho' a partir do modelo do Windows?"):
-            ok, msg = _powercfg("/duplicatescheme", ALTO_DESEMPENHO)
-            if not ok:
-                messagebox.showerror("Erro", msg)
-            self.carregar()

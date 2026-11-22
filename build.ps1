@@ -14,6 +14,7 @@ if (-not (Test-Path icone.ico)) { & $python gerar_icone.py }
     --uac-admin `
     --icon icone.ico `
     --add-data "icone.ico;." `
+    --add-data "ui;ui" `
     otimizador.py
 if ($LASTEXITCODE -ne 0) { throw "O PyInstaller falhou." }
 

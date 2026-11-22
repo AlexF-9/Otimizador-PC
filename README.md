@@ -27,9 +27,11 @@ Antes de apagar mostra sempre quanto espaço vai libertar e pede confirmação. 
 
 ## Correr a partir do código
 
-Precisa de Python 3.12 ou mais recente. Não tem dependências.
+Precisa de Python 3.12 ou mais recente. A interface é feita em HTML/CSS (pasta `ui`) e aberta com o
+[pywebview](https://pywebview.flowrl.com), que usa o WebView2 que já vem com o Windows 10 e 11.
 
 ```
+py -m pip install -r requirements.txt
 py otimizador.py
 ```
 
@@ -42,4 +44,5 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 
 ## Licença
 
-MIT
+MIT. As fontes Geist e Geist Mono (pasta `ui/fonts`) são da Vercel e usam a licença SIL Open Font License,
+incluída em `ui/fonts/OFL.txt`.

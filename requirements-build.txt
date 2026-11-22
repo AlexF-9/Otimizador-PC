@@ -1,2 +1,3 @@
-# Só é preciso para gerar o .exe. A app em si só usa a biblioteca standard do Python.
+# Para gerar o .exe
+-r requirements.txt
 pyinstaller==6.22.3
