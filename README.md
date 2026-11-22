@@ -16,7 +16,11 @@ O Windows pode mostrar o aviso "O Windows protegeu o seu PC" porque o exe não �
 
 - Limpeza de temporários, cache do Chrome/Edge, miniaturas, relatórios de erros, cache do Windows Update e Reciclagem
 - Botão "Otimizar tudo" que limpa só as coisas seguras (não mexe na Reciclagem nem no Windows Update)
-- Monitorização de CPU, RAM, disco e processos
+- Monitorização de CPU, RAM, todos os discos e processos
+- Analisador de espaço: mostra as pastas que mais ocupam em cada disco (só lê, não apaga nada)
+- Página Sistema com o hardware do PC e recomendações (ex.: RAM abaixo da velocidade por ter o XMP/EXPO desligado,
+  ecrã abaixo da taxa máxima, Modo de Jogo, saúde dos discos)
+- Estimativa de FPS em jogos populares a partir da placa gráfica e do processador (é uma estimativa, não uma medição)
 - Ligar/desligar programas de arranque (igual ao Gestor de Tarefas, não apaga nada)
 - Trocar o plano de energia
 

@@ -26,6 +26,14 @@
     <symbol id="i-aviso" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
     <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-espaco" viewBox="0 0 24 24"><path d="M11 4a8 8 0 1 0 9 9h-9z"/><path d="M14.5 3.3a8 8 0 0 1 6.2 6.2h-6.2z"/></symbol>
+    <symbol id="i-sistema" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2.5v3M15 2.5v3M9 18.5v3M15 18.5v3M2.5 9h3M2.5 15h3M18.5 9h3M18.5 15h3"/></symbol>
+    <symbol id="i-jogos" viewBox="0 0 24 24"><path d="M7.5 7.5h9a4.5 4.5 0 0 1 4.5 4.5v2.8a2.4 2.4 0 0 1-4.3 1.5L15 14H9l-1.7 2.3A2.4 2.4 0 0 1 3 14.8V12a4.5 4.5 0 0 1 4.5-4.5z"/><path d="M8 10.2v3.6M6.2 12h3.6M15.5 11h.01M17.5 13h.01"/></symbol>
+    <symbol id="i-pasta" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-ficheiro" viewBox="0 0 24 24"><path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-10z"/><path d="M14 3.5v5h5"/></symbol>
+    <symbol id="i-externo" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-voltar" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   </defs>
 </svg>
 
@@ -40,7 +48,10 @@
       <span class="indicador" aria-hidden="true"></span>
       <button class="item" data-pagina="inicio" title="Início"><svg class="ic"><use href="#i-inicio"/></svg><span>Início</span></button>
       <button class="item" data-pagina="limpeza" title="Limpeza"><svg class="ic"><use href="#i-limpeza"/></svg><span>Limpeza</span></button>
+      <button class="item" data-pagina="espaco" title="Espaço"><svg class="ic"><use href="#i-espaco"/></svg><span>Espaço</span></button>
       <button class="item" data-pagina="monitor" title="Monitorização"><svg class="ic"><use href="#i-monitor"/></svg><span>Monitorização</span></button>
+      <button class="item" data-pagina="sistema" title="Sistema"><svg class="ic"><use href="#i-sistema"/></svg><span>Sistema</span></button>
+      <button class="item" data-pagina="jogos" title="Jogos"><svg class="ic"><use href="#i-jogos"/></svg><span>Jogos</span></button>
       <button class="item" data-pagina="arranque" title="Arranque"><svg class="ic"><use href="#i-arranque"/></svg><span>Arranque</span></button>
       <button class="item" data-pagina="energia" title="Energia"><svg class="ic"><use href="#i-energia"/></svg><span>Energia</span></button>
     </nav>
@@ -80,7 +91,7 @@
           </div>
 
           <article class="cartao disco" data-spot style="--i:1">
-            <span class="rotulo"><svg class="ic"><use href="#i-disco"/></svg>Disco do sistema</span>
+            <span class="rotulo"><svg class="ic"><use href="#i-disco"/></svg>Disco do sistema <span class="mono" id="ini-disco-letra"></span></span>
             <div class="metrica" id="ini-disco"><span class="esqueleto"></span></div>
             <p class="sub" id="ini-disco-sub">&nbsp;</p>
             <div class="barra uso" id="ini-disco-barra"><i></i></div>
@@ -88,7 +99,11 @@
               <span><b class="chave usado"></b>Usado <span class="mono" id="ini-disco-usado">—</span></span>
               <span><b class="chave"></b>Livre <span class="mono" id="ini-disco-livre">—</span></span>
             </div>
-            <button class="link" data-ir="limpeza">Abrir Limpeza <svg class="ic"><use href="#i-seta"/></svg></button>
+            <div class="outros-discos" id="ini-outros"></div>
+            <div class="links">
+              <button class="link" data-ir="limpeza">Abrir Limpeza <svg class="ic"><use href="#i-seta"/></svg></button>
+              <button class="link" data-ir="espaco">Ver o que ocupa <svg class="ic"><use href="#i-seta"/></svg></button>
+            </div>
           </article>
 
           <article class="cartao stat" data-spot style="--i:2">
@@ -174,7 +189,10 @@
           </article>
 
           <article class="cartao medidor" id="mon-ram" data-spot style="--i:1"></article>
-          <article class="cartao medidor" id="mon-disco" data-spot style="--i:2"></article>
+          <article class="cartao discos-cartao" id="mon-discos" data-spot style="--i:2">
+            <span class="rotulo"><svg class="ic"><use href="#i-disco"/></svg>Discos</span>
+            <div class="lista-discos" id="mon-discos-lista"><span class="esqueleto"></span></div>
+          </article>
         </div>
 
         <div class="cartao" style="--i:3">
@@ -187,6 +205,112 @@
             <div class="tabela-corpo" id="mon-corpo"></div>
           </div>
         </div>
+      </section>
+
+      <!-- Espaço -->
+      <section class="pagina" id="pagina-espaco">
+        <header class="cabecalho">
+          <h1>Analisador de espaço</h1>
+          <p>Veja o que ocupa mais espaço em cada disco. Só lê tamanhos, não apaga nada.</p>
+        </header>
+
+        <div class="escolha-discos" id="esp-discos" style="--i:0"></div>
+
+        <div class="cartao" id="esp-painel" style="--i:1">
+          <div class="esp-topo">
+            <nav class="migalhas" id="esp-caminho" aria-label="Pasta atual"></nav>
+            <div class="acoes">
+              <button class="botao secundario pequeno" id="esp-voltar" disabled><svg class="ic"><use href="#i-voltar"/></svg><span>Voltar</span></button>
+              <button class="botao secundario pequeno" id="esp-abrir" disabled><svg class="ic"><use href="#i-externo"/></svg><span>Abrir no Explorador</span></button>
+              <button class="botao secundario pequeno" id="esp-denovo" disabled><svg class="ic"><use href="#i-atualizar"/></svg><span>Analisar de novo</span></button>
+            </div>
+          </div>
+          <div class="esp-progresso" id="esp-progresso" hidden>
+            <div class="barra" id="esp-barra"><i></i></div>
+            <div class="esp-progresso-linha">
+              <p class="estado" id="esp-estado"></p>
+              <button class="botao secundario pequeno" id="esp-cancelar">Cancelar</button>
+            </div>
+          </div>
+          <div class="esp-resumo" id="esp-resumo"></div>
+          <div class="lista-espaco" id="esp-lista"></div>
+        </div>
+      </section>
+
+      <!-- Sistema -->
+      <section class="pagina" id="pagina-sistema">
+        <header class="cabecalho cabecalho-linha">
+          <div>
+            <h1>Sistema</h1>
+            <p>O hardware do seu PC e o que pode melhorar. Esta página só lê informação.</p>
+          </div>
+          <button class="botao secundario pequeno" id="sis-atualizar"><svg class="ic"><use href="#i-atualizar"/></svg><span>Atualizar</span></button>
+        </header>
+
+        <div class="bento bento-sistema">
+          <article class="cartao sis-dicas" style="--i:0">
+            <h3 class="cartao-titulo">Recomendações</h3>
+            <div class="dicas" id="sis-dicas"></div>
+          </article>
+          <article class="cartao sis-hw" data-spot style="--i:1">
+            <h3 class="cartao-titulo">Hardware</h3>
+            <dl class="ficha" id="sis-hw"></dl>
+          </article>
+          <article class="cartao sis-ram" data-spot style="--i:2">
+            <span class="rotulo"><svg class="ic"><use href="#i-memoria"/></svg>Memória RAM</span>
+            <div id="sis-ram"></div>
+          </article>
+          <article class="cartao sis-ecra" data-spot style="--i:3">
+            <span class="rotulo"><svg class="ic"><use href="#i-jogos"/></svg>Ecrã e jogos</span>
+            <dl class="ficha" id="sis-ecra"></dl>
+          </article>
+          <article class="cartao sis-discos" style="--i:4">
+            <h3 class="cartao-titulo">Discos físicos</h3>
+            <div id="sis-discos"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Jogos -->
+      <section class="pagina" id="pagina-jogos">
+        <header class="cabecalho">
+          <h1>Desempenho em jogos</h1>
+          <p>Estimativa de FPS com base na sua placa gráfica e no seu processador.</p>
+        </header>
+
+        <div class="bento bento-jogos">
+          <article class="cartao jog-hw" data-spot style="--i:0">
+            <div class="jog-pecas" id="jog-hw"></div>
+          </article>
+          <article class="cartao jog-opcoes" style="--i:1">
+            <div class="opcao">
+              <span class="rotulo">Resolução</span>
+              <div class="segmentos" id="jog-res" role="radiogroup" aria-label="Resolução">
+                <span class="segmentos-fundo" aria-hidden="true"></span>
+                <button role="radio" data-v="1080p">1080p</button>
+                <button role="radio" data-v="1440p">1440p</button>
+                <button role="radio" data-v="4k">4K</button>
+              </div>
+            </div>
+            <div class="opcao">
+              <span class="rotulo">Qualidade gráfica</span>
+              <div class="segmentos" id="jog-qual" role="radiogroup" aria-label="Qualidade gráfica">
+                <span class="segmentos-fundo" aria-hidden="true"></span>
+                <button role="radio" data-v="baixa">Baixa</button>
+                <button role="radio" data-v="media">Média</button>
+                <button role="radio" data-v="alta">Alta</button>
+                <button role="radio" data-v="ultra">Ultra</button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="cartao lista" id="jog-lista" style="--i:2"></div>
+        <p class="nota" style="--i:3">
+          Isto é uma estimativa, não uma medição. Compara o seu hardware com médias públicas de benchmarks, sem ray
+          tracing nem upscaling (DLSS/FSR). O valor real varia com o mapa, os drivers, a temperatura e o que estiver
+          aberto em segundo plano.
+        </p>
       </section>
 
       <!-- Arranque -->

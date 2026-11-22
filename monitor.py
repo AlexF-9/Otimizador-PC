@@ -47,6 +47,44 @@ def disco():
     return u.used, u.total, 100 * u.used / u.total
 
 
+FIXO, AMOVIVEL = 3, 2
+
+# leitores de cartões vazios não devem abrir a janela "Insira um disco"
+try:
+    ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x8000)
+except Exception:
+    pass
+
+
+def discos():
+    """Discos fixos e amovíveis com letra, ordenados com o disco do sistema primeiro."""
+    k32 = ctypes.windll.kernel32
+    buf = ctypes.create_unicode_buffer(512)
+    n = k32.GetLogicalDriveStringsW(len(buf), buf)
+    sistema = os.environ.get("SystemDrive", "C:").upper()
+    res = []
+    for raiz in (p for p in buf[:n].split("\0") if p):
+        tipo = k32.GetDriveTypeW(raiz)
+        if tipo not in (FIXO, AMOVIVEL):
+            continue
+        try:
+            u = shutil.disk_usage(raiz)
+        except OSError:
+            continue
+        if not u.total:
+            continue
+        nome, fs = ctypes.create_unicode_buffer(261), ctypes.create_unicode_buffer(261)
+        k32.GetVolumeInformationW(raiz, nome, 261, None, None, None, fs, 261)
+        letra = raiz[:2].upper()
+        res.append({
+            "letra": letra, "raiz": raiz,
+            "nome": nome.value or ("Disco local" if tipo == FIXO else "Unidade amovível"),
+            "amovivel": tipo == AMOVIVEL, "sistema": letra == sistema, "fs": fs.value,
+            "total": u.total, "usado": u.used, "livre": u.free, "pct": 100 * u.used / u.total,
+        })
+    return sorted(res, key=lambda d: (not d["sistema"], d["amovivel"], d["letra"]))
+
+
 def processos():
     out = subprocess.run(["tasklist", "/fo", "csv", "/nh"], capture_output=True, text=True,
                          encoding="oem", errors="replace", creationflags=CREATE_NO_WINDOW).stdout

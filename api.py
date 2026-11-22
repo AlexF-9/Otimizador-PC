@@ -1,12 +1,16 @@
 """Funções que a interface (ui/app.js) chama através de window.pywebview.api."""
 import ctypes
 import json
+import os
 import threading
 
 import arranque
 import energia
+import espaco
+import jogos
 import limpeza
 import monitor
+import sistema
 from versao import VERSAO
 
 SEGURAS = ["Temporários do utilizador", "Temporários do Windows", "Relatórios de erros",
@@ -31,6 +35,19 @@ class Api:
         self._cpu = monitor.CpuMeter()
         self._progs = []
         self._trabalho = threading.Lock()  # só uma limpeza de cada vez
+        self._sistema = None
+        self._sistema_pronto = threading.Event()
+        self._indice = espaco.Indice()
+        self._cancelar_espaco = threading.Event()
+        self._espaco = threading.Lock()
+        # a leitura do hardware demora alguns segundos, por isso começa logo em segundo plano
+        threading.Thread(target=self._ler_sistema, daemon=True).start()
+
+    def _ler_sistema(self):
+        try:
+            self._sistema = sistema.informacao()
+        finally:
+            self._sistema_pronto.set()
 
     def _emitir(self, evento, dados):
         if self._janela:
@@ -44,7 +61,7 @@ class Api:
     def resumo(self):
         usado, total, pct = monitor.disco()
         progs = arranque.listar()
-        return {"livre": total - usado, "total": total, "pct": pct,
+        return {"livre": total - usado, "total": total, "pct": pct, "discos": monitor.discos(),
                 "arranque_ativos": sum(p.ativo for p in progs), "arranque_total": len(progs),
                 "plano": energia.plano_ativo()}
 
@@ -109,8 +126,7 @@ class Api:
     def estado(self):
         cpu = self._cpu.percent()
         ru, rt, rp = monitor.ram()
-        du, dt, dp = monitor.disco()
-        return {"cpu": cpu, "ram": [ru, rt, rp], "disco": [du, dt, dp]}
+        return {"cpu": cpu, "ram": [ru, rt, rp], "discos": monitor.discos()}
 
     def processos(self):
         return [{"nome": n, "pid": pid, "mem": mem} for n, pid, mem in monitor.processos()[:50]]
@@ -158,3 +174,55 @@ class Api:
     def energia_adicionar_alto(self):
         ok, msg = energia._powercfg("/duplicatescheme", energia.ALTO_DESEMPENHO)
         return {"ok": ok, "msg": msg}
+
+    # --- sistema e jogos (só leitura) -------------------------------------
+
+    def sistema_info(self, atualizar=False):
+        if atualizar and self._sistema_pronto.is_set():
+            self._sistema_pronto.clear()
+            threading.Thread(target=self._ler_sistema, daemon=True).start()
+        self._sistema_pronto.wait(90)
+        if not self._sistema:
+            return {"erro": "Não foi possível ler a informação do sistema."}
+        info = dict(self._sistema)
+        info["ligado_segundos"] = sistema.tempo_ligado()
+        return info
+
+    def jogos_estimar(self, resolucao="1080p", qualidade="alta"):
+        info = self.sistema_info()
+        if info.get("erro"):
+            return info
+        return jogos.estimar(info, resolucao, qualidade)
+
+    # --- analisador de espaço (só leitura) --------------------------------
+
+    def espaco_discos(self):
+        return monitor.discos()
+
+    def espaco_analisar(self, pasta, de_novo=False):
+        if not self._espaco.acquire(blocking=False):
+            return {"erro": "Já está uma análise a decorrer."}
+        try:
+            if de_novo:
+                self._indice.limpar()
+            self._cancelar_espaco.clear()
+            return espaco.analisar(pasta, self._cancelar_espaco,
+                                   lambda i, n, nome, f: self._emitir("espaco", {"i": i, "n": n, "nome": nome, "ficheiros": f}),
+                                   self._indice)
+        except espaco.Cancelado:
+            return {"cancelado": True}
+        except OSError as e:
+            return {"erro": str(e)}
+        finally:
+            self._espaco.release()
+
+    def espaco_cancelar(self):
+        self._cancelar_espaco.set()
+        return True
+
+    def abrir_pasta(self, pasta):
+        # só abre o Explorador numa pasta que existe; não altera nada
+        if not os.path.isdir(pasta):
+            return {"ok": False, "erro": "A pasta já não existe."}
+        os.startfile(pasta)
+        return {"ok": True}

@@ -251,6 +251,17 @@ paginas.inicio = {
     barra.closest(".disco").style.setProperty("--cor", cor);
     $("#ini-disco-usado").textContent = fmt(usado);
     $("#ini-disco-livre").textContent = fmt(r.livre);
+    const sist = r.discos.find(d => d.sistema);
+    $("#ini-disco-letra").textContent = sist ? `(${sist.letra})` : "";
+    $("#ini-outros").replaceChildren(...r.discos.filter(d => !d.sistema).map(d => {
+      const barra = h("div", { class: "barra" }, h("i"));
+      definirBarra(barra, d.pct, corNivel(d.pct));
+      return h("div", { class: "disco-mini", title: `${d.letra} ${d.nome}` },
+        h("span", { class: "letra", text: d.letra }),
+        h("span", { class: "nome", text: d.nome }),
+        h("span", { class: "livre", text: `${fmt(d.livre)} livres` }),
+        barra);
+    }));
 
     const arr = $("#ini-arranque");
     arr.style.color = r.arranque_ativos > 10 ? "var(--amarelo)" : "";
@@ -446,7 +457,7 @@ paginas.monitor = {
   hist: [], medidores: {}, aLer: false, selecionado: null, procs: [],
 
   iniciar() {
-    for (const [chave, titulo, ic] of [["ram", "Memória RAM", "memoria"], ["disco", "Disco C:", "disco"]]) {
+    for (const [chave, titulo, ic] of [["ram", "Memória RAM", "memoria"]]) {
       const ns = "http://www.w3.org/2000/svg";
       const svg = document.createElementNS(ns, "svg");
       svg.setAttribute("viewBox", "0 0 76 76");
@@ -502,12 +513,31 @@ paginas.monitor = {
     contar(cpu, e.cpu, v => `${num1.format(v)}%`, 700);
     const [ru, rt, rp] = e.ram;
     this.medidor("ram", rp, `${fmt(ru)} / ${fmt(rt)}`, `${fmt(rt - ru)} disponíveis`);
-    const [du, dt, dp] = e.disco;
-    this.medidor("disco", dp, `${fmt(du)} / ${fmt(dt)}`, `${fmt(dt - du)} livres`);
+    this.discos(e.discos);
     if (atual === "monitor") {
       this.desenhar();
       this.lerProcessos();
     }
+  },
+
+  discos(lista) {
+    const caixa = $("#mon-discos-lista");
+    const linhas = caixa.querySelectorAll(".disco-linha");
+    if (linhas.length !== lista.length) {
+      caixa.replaceChildren(...lista.map(() => h("div", { class: "disco-linha" },
+        h("span", { class: "nome" }, h("b"), h("span")), h("span", { class: "pct" }),
+        h("div", { class: "barra" }, h("i")))));
+    }
+    lista.forEach((d, i) => {
+      const l = caixa.children[i];
+      l.title = `${d.letra} ${d.nome}: ${fmt(d.usado)} de ${fmt(d.total)} usados, ${fmt(d.livre)} livres`;
+      $("b", l).textContent = d.letra;
+      $(".nome > span", l).textContent = `${d.nome} · ${fmt(d.livre)} livres`;
+      const pct = $(".pct", l);
+      pct.textContent = `${Math.round(d.pct)}%`;
+      pct.style.color = corNivel(d.pct);
+      definirBarra($(".barra", l), d.pct, corNivel(d.pct));
+    });
   },
 
   /* gráfico */
@@ -670,6 +700,369 @@ paginas.monitor = {
   },
 };
 
+/* ---------- Analisador de espaço ---------- */
+
+paginas.espaco = {
+  discos: [], pilha: [], res: null, ocupado: false, discoSel: null,
+
+  iniciar() {
+    $("#esp-voltar").addEventListener("click", () => this.voltar());
+    $("#esp-abrir").addEventListener("click", () => this.abrir(this.res?.pasta));
+    $("#esp-denovo").addEventListener("click", () => this.res && this.ir(this.res.pasta, true, false));
+    $("#esp-cancelar").addEventListener("click", () => api().espaco_cancelar());
+    ouvir("espaco", ({ i, n, nome, ficheiros }) => {
+      definirBarra($("#esp-barra"), n ? 100 * i / n : 0, "var(--acento)", true);
+      $("#esp-estado").textContent = `A ler: ${nome} · ${num0.format(ficheiros)} ficheiros`;
+    });
+    $("#esp-lista").replaceChildren(vazio("espaco", "Escolha um disco para começar.",
+      "A primeira análise de um disco grande pode demorar alguns minutos. Depois disso, entrar nas pastas é imediato."));
+  },
+
+  async mostrar() {
+    try {
+      this.discos = await api().espaco_discos();
+    } catch {
+      $("#esp-discos").replaceChildren(erroInline("Não foi possível ler os discos.", () => this.mostrar()));
+      return;
+    }
+    this.desenharDiscos();
+  },
+
+  desenharDiscos() {
+    $("#esp-discos").replaceChildren(...this.discos.map(d => {
+      const barra = h("div", { class: "barra" }, h("i"));
+      definirBarra(barra, d.pct, corNivel(d.pct));
+      const b = h("button", { class: "disco-botao", "aria-pressed": String(d.letra === this.discoSel), title: `${d.letra} ${d.nome}` },
+        h("span", { class: "letra", text: d.letra }),
+        h("span", { class: "nome", text: d.nome }),
+        h("span", { class: "info", text: `${fmt(d.livre)} livres de ${fmt(d.total)}` }),
+        barra);
+      b.addEventListener("click", () => {
+        if (this.ocupado) return;
+        this.discoSel = d.letra;
+        this.pilha = [];
+        this.res = null;
+        this.desenharDiscos();
+        this.ir(d.raiz);
+      });
+      return b;
+    }));
+  },
+
+  botoes() {
+    $("#esp-voltar").disabled = this.ocupado || !this.pilha.length;
+    $("#esp-abrir").disabled = this.ocupado || !this.res;
+    $("#esp-denovo").disabled = this.ocupado || !this.res;
+  },
+
+  async ir(pasta, deNovo = false, empilhar = true) {
+    if (this.ocupado) return;
+    this.ocupado = true;
+    this.botoes();
+    $("#esp-progresso").hidden = false;
+    definirBarra($("#esp-barra"), 0, "var(--acento)", true);
+    $("#esp-estado").textContent = "A preparar…";
+    let r;
+    try {
+      r = await api().espaco_analisar(pasta, deNovo);
+    } catch (e) {
+      r = { erro: String(e) };
+    }
+    this.ocupado = false;
+    $("#esp-progresso").hidden = true;
+    if (r.cancelado) {
+      avisar("Análise cancelada.", "info");
+    } else if (r.erro) {
+      $("#esp-lista").replaceChildren(erroInline(r.erro, () => this.ir(pasta, deNovo, empilhar)));
+    } else {
+      if (empilhar && this.res && this.res.pasta !== r.pasta) this.pilha.push(this.res.pasta);
+      this.res = r;
+      this.desenhar();
+    }
+    this.botoes();
+  },
+
+  voltar() {
+    const p = this.pilha.pop();
+    if (p) this.ir(p, false, false);
+  },
+
+  async abrir(pasta) {
+    if (!pasta) return;
+    const r = await api().abrir_pasta(pasta);
+    if (!r.ok) avisar(r.erro, "aviso");
+  },
+
+  desenhar() {
+    const r = this.res;
+    // migalhas: C:\ > Users > Utilizador
+    const partes = r.pasta.split("\\").filter(Boolean);
+    const caminhos = partes.map((_, i) => i === 0 ? partes[0] + "\\" : partes.slice(0, i + 1).join("\\"));
+    const mig = [];
+    partes.forEach((p, i) => {
+      if (i) mig.push(icone("chevron"));
+      mig.push(h("button", { text: i === 0 ? p : p, title: caminhos[i],
+        onclick: () => caminhos[i] !== r.pasta && this.ir(caminhos[i]) }));
+    });
+    $("#esp-caminho").replaceChildren(...mig);
+
+    const pastas = r.itens.filter(x => x.pasta).length;
+    $("#esp-resumo").replaceChildren(
+      h("span", {}, "Total", h("b", { text: fmt(r.total) })),
+      h("span", {}, "Ficheiros", h("b", { text: num0.format(r.ficheiros) })),
+      h("span", {}, "Pastas", h("b", { text: num0.format(pastas) })));
+
+    if (!r.itens.length) {
+      $("#esp-lista").replaceChildren(vazio("pasta", "Esta pasta está vazia.", "Ou não tem permissão para ver o que está dentro."));
+      return;
+    }
+    const maior = Math.max(1, r.itens[0].bytes);
+    $("#esp-lista").replaceChildren(...r.itens.slice(0, 200).map((x, i) => {
+      const barra = h("div", { class: "barra" }, h("i"));
+      definirBarra(barra, 100 * x.bytes / maior, x.pasta ? "var(--acento)" : "var(--suave)");
+      const abrir = h("button", { class: "icone-botao", title: "Abrir no Explorador", "aria-label": `Abrir ${x.nome} no Explorador` }, icone("externo"));
+      abrir.addEventListener("click", e => { e.stopPropagation(); this.abrir(x.caminho); });
+      const linha = h("div", {
+        class: "item-espaco" + (x.pasta ? " pasta" : ""), style: `--i:${Math.min(i, 20)}`,
+        title: `${x.nome}\n${fmt(x.bytes)} · ${num0.format(x.ficheiros)} ficheiros`,
+        tabindex: x.pasta ? "0" : null, role: x.pasta ? "button" : null,
+      },
+        icone(x.pasta ? "pasta" : "ficheiro"),
+        h("span", { class: "nome", text: x.nome }),
+        barra,
+        h("span", { class: "tam", text: fmt(x.bytes) }),
+        h("span", { class: "pct", text: r.total ? `${num1.format(100 * x.bytes / r.total)}%` : "" }),
+        abrir);
+      if (x.pasta) {
+        linha.addEventListener("click", () => this.ir(x.caminho));
+        linha.addEventListener("keydown", e => { if (e.key === "Enter") this.ir(x.caminho); });
+      }
+      return linha;
+    }));
+  },
+};
+
+/* ---------- Sistema ---------- */
+
+function duracao(seg) {
+  const d = Math.floor(seg / 86400), hh = Math.floor(seg % 86400 / 3600), m = Math.floor(seg % 3600 / 60);
+  return d ? `${d} d ${hh} h` : hh ? `${hh} h ${m} min` : `${m} min`;
+}
+
+function pilula(texto, tipo = "") {
+  return h("span", { class: "estado-pilula " + tipo, text: texto });
+}
+
+paginas.sistema = {
+  info: null,
+
+  iniciar() {
+    $("#sis-atualizar").addEventListener("click", () => this.carregar(true));
+    const esq = n => Array.from({ length: n }, () => h("span", { class: "esqueleto", style: "display:block;width:100%;height:44px;margin-top:10px;border-radius:12px" }));
+    $("#sis-dicas").replaceChildren(...esq(3));
+    $("#sis-hw").replaceChildren(...esq(5));
+    $("#sis-ram").replaceChildren(...esq(2));
+    $("#sis-ecra").replaceChildren(...esq(3));
+    $("#sis-discos").replaceChildren(...esq(2));
+  },
+
+  mostrar() { this.carregar(); },
+
+  async carregar(atualizar = false) {
+    const b = $("#sis-atualizar");
+    carregar(b, true);
+    let r;
+    try {
+      r = await api().sistema_info(atualizar);
+    } catch (e) {
+      r = { erro: String(e) };
+    }
+    carregar(b, false);
+    if (r.erro) {
+      $("#sis-dicas").replaceChildren(erroInline(r.erro, () => this.carregar(true)));
+      return;
+    }
+    this.info = r;
+    paginas.jogos.info = r;
+    this.desenhar();
+  },
+
+  desenhar() {
+    const r = this.info;
+    $("#sis-dicas").replaceChildren(...(r.dicas.length ? r.dicas : [{ nivel: "ok", titulo: "Está tudo bem configurado", texto: "Não encontrei nada para melhorar." }])
+      .map((d, i) => h("div", { class: "dica " + d.nivel, style: `--i:${i}` },
+        h("span", { class: "marca-estado" }, icone(d.nivel === "ok" ? "ok" : d.nivel === "aviso" ? "aviso" : "info")),
+        h("strong", { text: d.titulo }), h("span", { text: d.texto }))));
+
+    const ram = r.ram;
+    const linhas = [
+      ["Processador", `${r.cpu.nome}${r.cpu.nucleos ? ` · ${r.cpu.nucleos} núcleos / ${r.cpu.threads} threads` : ""}`],
+      ...r.gpus.map((g, i) => [r.gpus.length > 1 ? `Placa gráfica ${i + 1}` : "Placa gráfica",
+        g.nome + (g.vram ? ` · ${fmt(g.vram)}` : "")]),
+      ["Memória", ram ? `${fmt(ram.total)} ${ram.tipo || ""}`.trim() : "—"],
+      ["Placa-mãe", r.placa || "—"],
+      ["Windows", `${r.so}${r.build ? ` (build ${r.build})` : ""}`],
+      ["Ligado há", duracao(r.ligado_segundos)],
+    ];
+    $("#sis-hw").replaceChildren(...linhas.flatMap(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })]));
+
+    // RAM: velocidade atual face à anunciada
+    if (!ram) {
+      $("#sis-ram").replaceChildren(vazio("memoria", "Não foi possível ler a memória."));
+    } else {
+      const ref = ram.nominal || ram.suportada || ram.velocidade;
+      const abaixo = ram.nominal && ram.nominal > ram.velocidade + 150;
+      const escala = h("div", { class: "barra" }, h("i"));
+      definirBarra(escala, ref ? 100 * ram.velocidade / ref : 100, abaixo ? "var(--amarelo)" : "var(--verde)");
+      $("#sis-ram").replaceChildren(
+        h("div", { class: "ram-velocidade" },
+          h("div", { class: "metrica", style: abaixo ? "color:var(--amarelo)" : "" },
+            String(ram.velocidade || "—"), h("small", { text: "MT/s" }))),
+        h("p", { class: "sub", text: abaixo ? `Os módulos são de ${ram.nominal} MT/s. Está a perder velocidade.`
+          : `${ram.tipo || "RAM"} · ${ram.modulos.length} ${ram.modulos.length === 1 ? "módulo" : "módulos"}` }),
+        h("div", { class: "ram-escala" }, escala),
+        h("div", { class: "ram-escala-legenda" }, h("span", { text: "0" }), h("span", { text: ref ? `${ref} MT/s` : "" })),
+        h("div", { class: "modulos" }, ...ram.modulos.map((m, i, todos) => h("div", { class: "modulo" },
+          h("b", { text: fmt(m.capacidade) }),
+          h("span", { text: [m.fabricante, m.codigo].filter(Boolean).join(" ") || "Módulo" }),
+          // alguns PCs reportam a mesma ranhura em todos os módulos; aí mostra-se só a ordem
+          h("span", { text: new Set(todos.map(x => x.ranhura)).size === todos.length && m.ranhura ? m.ranhura : `Módulo ${i + 1}` })))));
+    }
+
+    const e = r.ecra;
+    const ecra = [
+      ["Resolução", e ? `${e.largura} × ${e.altura}` : "—"],
+      ["Taxa de atualização", e ? (e.hz_max > e.hz + 1 ? `${e.hz} Hz (aceita ${e.hz_max} Hz)` : `${e.hz} Hz`) : "—"],
+      ["Modo de Jogo", pilula(r.modo_jogo ? "Ligado" : "Desligado", r.modo_jogo ? "ok" : "aviso")],
+      ["Agendamento de GPU", pilula(r.agendamento_gpu === null ? "Não suportado" : r.agendamento_gpu ? "Ligado" : "Desligado",
+        r.agendamento_gpu ? "ok" : "")],
+    ];
+    $("#sis-ecra").replaceChildren(...ecra.flatMap(([k, v]) => [h("dt", { text: k }), h("dd", {}, v)]));
+
+    const discos = r.discos_fisicos;
+    const semDados = discos.every(d => d.temp == null && d.desgaste == null);
+    $("#sis-discos").replaceChildren(
+      ...(discos.length ? discos.map(d => {
+        const saude = d.saude === "Healthy" ? pilula("Saudável", "ok") : pilula(d.saude || "Desconhecido", d.saude ? "aviso" : "");
+        return h("div", { class: "disco-fisico" },
+          h("span", { class: "tile" }, icone("disco")),
+          h("span", { class: "nome", text: d.nome }),
+          h("span", { class: "detalhes" },
+            h("span", { class: "distintivo", text: [d.tipo !== "Unspecified" ? d.tipo : "", d.bus].filter(Boolean).join(" · ") || "Disco" }),
+            h("span", { class: "mono", text: fmt(d.tamanho) })),
+          h("span", { class: "lado" },
+            d.temp != null ? h("span", { class: "distintivo", text: `${d.temp} °C` }) : null,
+            d.desgaste != null ? h("span", { class: "distintivo", text: `Desgaste ${d.desgaste}%` }) : null,
+            saude));
+      }) : [vazio("disco", "Nenhum disco físico encontrado.")]),
+      semDados && !window.__admin ? h("p", { class: "nota", text: "A temperatura e o desgaste dos discos só aparecem com a app aberta como administrador." }) : null);
+  },
+};
+
+/* ---------- Jogos ---------- */
+
+function segmentos(grupo, valor, aoMudar) {
+  const botoes = $$("button", grupo);
+  const definir = v => {
+    const k = Math.max(0, botoes.findIndex(b => b.dataset.v === v));
+    botoes.forEach((b, i) => { b.setAttribute("aria-checked", String(i === k)); b.tabIndex = i === k ? 0 : -1; });
+    grupo.style.setProperty("--n", botoes.length);
+    grupo.style.setProperty("--k", k);
+  };
+  botoes.forEach((b, i) => {
+    b.addEventListener("click", () => { definir(b.dataset.v); aoMudar(b.dataset.v); });
+    b.addEventListener("keydown", e => {
+      if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+      const j = (i + (e.key === "ArrowRight" ? 1 : -1) + botoes.length) % botoes.length;
+      botoes[j].focus();
+      botoes[j].click();
+    });
+  });
+  definir(valor);
+  return definir;
+}
+
+paginas.jogos = {
+  info: null, res: null, qual: "alta", definirRes: null,
+
+  iniciar() {
+    this.definirRes = segmentos($("#jog-res"), "1080p", v => { this.res = v; this.calcular(); });
+    segmentos($("#jog-qual"), this.qual, v => { this.qual = v; this.calcular(); });
+    $("#jog-lista").replaceChildren(...Array.from({ length: 6 }, () => h("div", { class: "linha" },
+      h("div", { class: "linha-texto" }, h("span", { class: "esqueleto", style: "width:40%" })),
+      h("span", { class: "esqueleto", style: "width:30%" }))));
+    $("#jog-hw").replaceChildren(h("span", { class: "esqueleto", style: "width:80%;height:60px" }));
+  },
+
+  async mostrar() {
+    if (!this.res) {
+      // começa na resolução do ecrã
+      if (!this.info) {
+        try { this.info = await api().sistema_info(); } catch { /* usa 1080p */ }
+      }
+      const alt = this.info?.ecra?.altura || 1080;
+      this.res = alt >= 2000 ? "4k" : alt >= 1400 ? "1440p" : "1080p";
+      this.definirRes(this.res);
+    }
+    this.calcular();
+  },
+
+  async calcular() {
+    let r;
+    try {
+      r = await api().jogos_estimar(this.res, this.qual);
+    } catch (e) {
+      r = { erro: String(e) };
+    }
+    if (r.erro) {
+      $("#jog-lista").replaceChildren(erroInline(r.erro, () => this.calcular()));
+      return;
+    }
+    this.desenhar(r);
+  },
+
+  desenhar(r) {
+    const peca = (rotulo, ic, nome, sub, pontos, aproximado) => {
+      const barra = h("div", { class: "barra" }, h("i"));
+      definirBarra(barra, pontos ? Math.min(100, pontos / 2.5) : 0, "var(--acento)");
+      return h("div", { class: "peca" },
+        h("span", { class: "rotulo" }, icone(ic), rotulo),
+        h("div", { class: "nome", text: nome || "Não detetado" }),
+        h("p", { class: "sub", text: sub }),
+        h("div", { class: "pontos", title: "Desempenho relativo (RTX 3060 / Ryzen 5 5600 = 100)" }, barra,
+          h("span", { text: pontos ? `${aproximado ? "~" : ""}${pontos}` : "?" })));
+    };
+    $("#jog-hw").replaceChildren(
+      peca("Placa gráfica", "jogos", r.gpu.nome, `${r.gpu.nivel}${r.gpu.vram ? ` · ${fmt(r.gpu.vram)} VRAM` : ""}`, r.gpu.pontos),
+      peca("Processador", "sistema", r.cpu.nome, r.cpu.exata ? "Desempenho em jogos" : "Modelo não está na tabela: valor aproximado",
+        r.cpu.pontos, !r.cpu.exata));
+
+    if (!r.gpu.pontos) {
+      $("#jog-lista").replaceChildren(vazio("jogos", "Não reconheci a placa gráfica.",
+        `"${r.gpu.nome || "desconhecida"}" não está na tabela de desempenho, por isso não consigo estimar os FPS.`));
+      return;
+    }
+    const hz = r.hz || 60;
+    const escala = Math.max(hz * 1.35, ...r.jogos.map(j => j.max)) * 1.05;
+    $("#jog-lista").replaceChildren(...r.jogos.map((j, i) => {
+      const meio = (j.min + j.max) / 2;
+      const cor = meio >= hz ? "var(--verde)" : meio >= 60 ? "var(--acento)" : meio >= 30 ? "var(--amarelo)" : "var(--vermelho)";
+      const faixa = h("span", { class: "faixa" }, h("i", { style: `--pct:${(100 * meio / escala).toFixed(1)};--cor:${cor}` }));
+      const marca = h("span", { class: "hz", style: `left:${(100 * hz / escala).toFixed(1)}%`, title: `Taxa do ecrã: ${hz} Hz` },
+        i === 0 ? h("span", { text: `${hz} Hz` }) : null);
+      const nota = j.limite && j.max >= j.limite ? `limitado a ${j.limite} FPS pelo jogo`
+        : j.falta_vram ? "pouca VRAM nesta qualidade" : meio >= hz ? `acima dos ${hz} Hz` : "";
+      const garg = j.gargalo === "Gráfica" ? ["Limita: gráfica", "gpu"] : j.gargalo === "Processador" ? ["Limita: processador", "cpu"] : ["Equilibrado", ""];
+      return h("div", { class: "linha jogo entrar", style: `--i:${i}` },
+        h("div", { class: "linha-texto" }, h("div", { class: "linha-nome", text: j.nome }), h("div", { class: "linha-desc", text: j.genero })),
+        h("div", { class: "fps-barra", "aria-hidden": "true" }, faixa, marca),
+        h("div", { class: "fps-valor" }, h("b", { text: j.min === j.max ? `${j.max}` : `${j.min}–${j.max}` }), " FPS",
+          h("small", { class: j.falta_vram ? "vram-aviso" : "", text: nota })),
+        h("span", { class: "distintivo " + garg[1], text: garg[0] }));
+    }));
+  },
+};
+
 /* ---------- Arranque ---------- */
 
 paginas.arranque = {
@@ -814,6 +1207,7 @@ async function iniciar() {
   ativarMagnetico();
 
   const info = await api().info();
+  window.__admin = info.admin;
   const admin = $("#admin");
   admin.textContent = info.admin ? "Administrador" : "Sem administrador";
   admin.className = "admin " + (info.admin ? "sim" : "nao");
