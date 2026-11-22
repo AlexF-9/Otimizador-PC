@@ -313,7 +313,7 @@ paginas.inicio = {
     avisar(`Otimização concluída: ${fmt(total)} libertados.`, "ok");
     $("#ini-resultados").replaceChildren(...res.map((x, i) => {
       const tipo = x.ignorado ? "ignorado" : x.bytes ? "ok" : "";
-      const texto = x.ignorado || `${fmt(x.bytes)}` + (x.falhas ? ` · ${x.falhas} em uso` : "");
+      const texto = x.ignorado || `${fmt(x.bytes)}` + (x.falhas ? ` (${x.falhas} em uso)` : "");
       return h("div", { class: "resultado " + tipo, style: `--i:${i}` },
         h("span", { class: "marca-estado" }, icone(x.ignorado ? "aviso" : "ok")),
         h("span", { class: "nome", text: x.nome, title: x.nome }),
@@ -514,10 +514,35 @@ paginas.monitor = {
     const [ru, rt, rp] = e.ram;
     this.medidor("ram", rp, `${fmt(ru)} / ${fmt(rt)}`, `${fmt(rt - ru)} disponíveis`);
     this.discos(e.discos);
+    this.telemetria(e);
     if (atual === "monitor") {
       this.desenhar();
       this.lerProcessos();
     }
+  },
+
+  // leitura ao vivo na barra lateral, visível em todas as páginas
+  telemetria(e) {
+    const sist = e.discos.find(d => d.sistema) || e.discos[0];
+    const valores = { cpu: [e.cpu, `${Math.round(e.cpu)}%`], ram: [e.ram[2], `${Math.round(e.ram[2])}%`],
+      disco: sist ? [sist.pct, `${Math.round(sist.pct)}%`] : [0, "—"] };
+    for (const [k, [pct, txt]] of Object.entries(valores)) {
+      const el = $(`.tm[data-k="${k}"]`);
+      const cor = k === "cpu" ? (pct < 85 ? "" : corNivel(pct)) : corNivel(pct);
+      el.style.setProperty("--pct", Math.max(0, Math.min(100, pct)));
+      el.style.setProperty("--cor", cor || "var(--acento)");
+      $(".tm-valor", el).textContent = txt;
+      $(".tm-valor", el).style.color = cor && pct >= 60 ? cor : "";
+    }
+    if (sist) $("#tm-letra").textContent = sist.letra;
+    // linha dos últimos 40 segundos do processador
+    const pts = this.hist.slice(-20);
+    if (pts.length > 1) {
+      $(".tm-linha path").setAttribute("d", pts.map((v, i) =>
+        `${i ? "L" : "M"}${(100 * i / 19 + 100 * (20 - pts.length) / 19).toFixed(1)},${(19 - 18 * v / 100).toFixed(1)}`).join(""));
+    }
+    document.getElementById("telemetria").title =
+      `Processador ${Math.round(e.cpu)}%, memória ${Math.round(e.ram[2])}%${sist ? `, disco ${sist.letra} ${Math.round(sist.pct)}%` : ""}. Clique para abrir a Monitorização.`;
   },
 
   discos(lista) {
@@ -532,7 +557,7 @@ paginas.monitor = {
       const l = caixa.children[i];
       l.title = `${d.letra} ${d.nome}: ${fmt(d.usado)} de ${fmt(d.total)} usados, ${fmt(d.livre)} livres`;
       $("b", l).textContent = d.letra;
-      $(".nome > span", l).textContent = `${d.nome} · ${fmt(d.livre)} livres`;
+      $(".nome > span", l).textContent = `${d.nome}, ${fmt(d.livre)} livres`;
       const pct = $(".pct", l);
       pct.textContent = `${Math.round(d.pct)}%`;
       pct.style.color = corNivel(d.pct);
@@ -595,7 +620,7 @@ paginas.monitor = {
     p.forEach((q, j) => { if (Math.abs(q[0] - x) < Math.abs(p[i][0] - x)) i = j; });
     const segundos = (this.hist.length - 1 - i) * 2;
     const dica = $(".dica", g);
-    dica.textContent = `${num1.format(this.hist[i])}% · ${segundos ? `há ${segundos} s` : "agora"}`;
+    dica.textContent = `${num1.format(this.hist[i])}% ${segundos ? `há ${segundos} s` : "agora"}`;
     const larg = dica.offsetWidth;
     const px = Math.max(0, Math.min(g.clientWidth - larg, p[i][0] - larg / 2));
     dica.style.transform = `translate(${px}px, -100%)`;
@@ -712,7 +737,7 @@ paginas.espaco = {
     $("#esp-cancelar").addEventListener("click", () => api().espaco_cancelar());
     ouvir("espaco", ({ i, n, nome, ficheiros }) => {
       definirBarra($("#esp-barra"), n ? 100 * i / n : 0, "var(--acento)", true);
-      $("#esp-estado").textContent = `A ler: ${nome} · ${num0.format(ficheiros)} ficheiros`;
+      $("#esp-estado").textContent = `A ler ${nome} (${num0.format(ficheiros)} ficheiros até agora)`;
     });
     $("#esp-lista").replaceChildren(vazio("espaco", "Escolha um disco para começar.",
       "A primeira análise de um disco grande pode demorar alguns minutos. Depois disso, entrar nas pastas é imediato."));
@@ -824,7 +849,7 @@ paginas.espaco = {
       abrir.addEventListener("click", e => { e.stopPropagation(); this.abrir(x.caminho); });
       const linha = h("div", {
         class: "item-espaco" + (x.pasta ? " pasta" : ""), style: `--i:${Math.min(i, 20)}`,
-        title: `${x.nome}\n${fmt(x.bytes)} · ${num0.format(x.ficheiros)} ficheiros`,
+        title: `${x.nome}\n${fmt(x.bytes)} em ${num0.format(x.ficheiros)} ficheiros`,
         tabindex: x.pasta ? "0" : null, role: x.pasta ? "button" : null,
       },
         icone(x.pasta ? "pasta" : "ficheiro"),
@@ -864,6 +889,7 @@ paginas.sistema = {
     $("#sis-ram").replaceChildren(...esq(2));
     $("#sis-ecra").replaceChildren(...esq(3));
     $("#sis-discos").replaceChildren(...esq(2));
+    $("#sis-driver").replaceChildren(...esq(2));
   },
 
   mostrar() { this.carregar(); },
@@ -896,9 +922,9 @@ paginas.sistema = {
 
     const ram = r.ram;
     const linhas = [
-      ["Processador", `${r.cpu.nome}${r.cpu.nucleos ? ` · ${r.cpu.nucleos} núcleos / ${r.cpu.threads} threads` : ""}`],
+      ["Processador", `${r.cpu.nome}${r.cpu.nucleos ? `, ${r.cpu.nucleos} núcleos e ${r.cpu.threads} threads` : ""}`],
       ...r.gpus.map((g, i) => [r.gpus.length > 1 ? `Placa gráfica ${i + 1}` : "Placa gráfica",
-        g.nome + (g.vram ? ` · ${fmt(g.vram)}` : "")]),
+        g.nome + (g.vram ? ` com ${fmt(g.vram)}` : "")]),
       ["Memória", ram ? `${fmt(ram.total)} ${ram.tipo || ""}`.trim() : "—"],
       ["Placa-mãe", r.placa || "—"],
       ["Windows", `${r.so}${r.build ? ` (build ${r.build})` : ""}`],
@@ -919,7 +945,7 @@ paginas.sistema = {
           h("div", { class: "metrica", style: abaixo ? "color:var(--amarelo)" : "" },
             String(ram.velocidade || "—"), h("small", { text: "MT/s" }))),
         h("p", { class: "sub", text: abaixo ? `Os módulos são de ${ram.nominal} MT/s. Está a perder velocidade.`
-          : `${ram.tipo || "RAM"} · ${ram.modulos.length} ${ram.modulos.length === 1 ? "módulo" : "módulos"}` }),
+          : `${ram.tipo || "RAM"} em ${ram.modulos.length} ${ram.modulos.length === 1 ? "módulo" : "módulos"}` }),
         h("div", { class: "ram-escala" }, escala),
         h("div", { class: "ram-escala-legenda" }, h("span", { text: "0" }), h("span", { text: ref ? `${ref} MT/s` : "" })),
         h("div", { class: "modulos" }, ...ram.modulos.map((m, i, todos) => h("div", { class: "modulo" },
@@ -939,6 +965,8 @@ paginas.sistema = {
     ];
     $("#sis-ecra").replaceChildren(...ecra.flatMap(([k, v]) => [h("dt", { text: k }), h("dd", {}, v)]));
 
+    this.driver(r.gpus.find(g => g.driver?.fabricante) || r.gpus[0]);
+
     const discos = r.discos_fisicos;
     const semDados = discos.every(d => d.temp == null && d.desgaste == null);
     $("#sis-discos").replaceChildren(
@@ -948,7 +976,7 @@ paginas.sistema = {
           h("span", { class: "tile" }, icone("disco")),
           h("span", { class: "nome", text: d.nome }),
           h("span", { class: "detalhes" },
-            h("span", { class: "distintivo", text: [d.tipo !== "Unspecified" ? d.tipo : "", d.bus].filter(Boolean).join(" · ") || "Disco" }),
+            h("span", { class: "distintivo", text: [d.tipo !== "Unspecified" ? d.tipo : "", d.bus].filter(Boolean).join(" ") || "Disco" }),
             h("span", { class: "mono", text: fmt(d.tamanho) })),
           h("span", { class: "lado" },
             d.temp != null ? h("span", { class: "distintivo", text: `${d.temp} °C` }) : null,
@@ -956,6 +984,43 @@ paginas.sistema = {
             saude));
       }) : [vazio("disco", "Nenhum disco físico encontrado.")]),
       semDados && !window.__admin ? h("p", { class: "nota", text: "A temperatura e o desgaste dos discos só aparecem com a app aberta como administrador." }) : null);
+  },
+
+  driver(g) {
+    const caixa = $("#sis-driver");
+    const d = g?.driver;
+    if (!d || !d.versao) {
+      caixa.replaceChildren(vazio("chip", "Não foi possível ler o driver.", "A versão do driver da placa gráfica não está disponível."));
+      return;
+    }
+    const dias = d.dias;
+    const meses = dias == null ? null : Math.floor(dias / 30.4);
+    const idade = dias == null ? "data desconhecida" : dias < 31 ? (dias <= 1 ? "instalado hoje" : `há ${dias} dias`)
+      : meses < 12 ? `há ${meses} ${meses === 1 ? "mês" : "meses"}` : `há ${num1.format(dias / 365)} anos`;
+    const [txt, tipo, cor] = { ok: ["Atualizado", "ok", "var(--verde)"], aviso: ["Considere atualizar", "aviso", "var(--amarelo)"],
+      antigo: ["Driver antigo", "antigo", "var(--vermelho)"] }[d.estado] || ["Sem data", "", "var(--apagado)"];
+    const quando = d.data ? new Date(d.data + "T12:00").toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric" }) : "";
+
+    // linha do tempo de 0 a 12+ meses
+    const barra = h("div", { class: "barra" }, h("i"));
+    const pct = dias == null ? 0 : Math.min(100, 100 * dias / 365);
+    definirBarra(barra, pct, cor);
+    const trilho = h("span", { class: "drv-trilho" }, h("span", { class: "drv-marca", style: `--cor:${cor}` }));
+    const linha = h("div", { class: "drv-linha", title: d.data ? `Driver de ${quando}` : "" }, barra, trilho);
+    requestAnimationFrame(() => requestAnimationFrame(() => trilho.style.setProperty("--pct", pct.toFixed(1))));
+
+    const botao = d.pagina ? h("button", { class: "botao secundario pequeno" }, icone("externo"), h("span", { text: `Página da ${d.fabricante_nome}` })) : null;
+    botao?.addEventListener("click", async () => {
+      const r = await api().abrir_pagina_driver(d.fabricante);
+      if (!r.ok) avisar(r.erro, "aviso");
+    });
+    caixa.replaceChildren(
+      h("div", { class: "drv-versao" },
+        h("div", { class: "metrica", text: d.versao }), pilula(txt, tipo)),
+      h("p", { class: "sub", text: d.fabricante === "amd" ? "AMD Software: Adrenalin Edition" : `Driver ${d.fabricante_nome || "da placa gráfica"}` }),
+      linha,
+      h("div", { class: "drv-escala" }, h("span", { text: "novo" }), h("span", { text: "6 meses" }), h("span", { text: "12+ meses" })),
+      h("div", { class: "drv-rodape" }, h("p", { class: "sub", text: quando ? `Instalado ${idade} (${quando})` : idade }), botao));
   },
 };
 
@@ -1033,7 +1098,7 @@ paginas.jogos = {
           h("span", { text: pontos ? `${aproximado ? "~" : ""}${pontos}` : "?" })));
     };
     $("#jog-hw").replaceChildren(
-      peca("Placa gráfica", "jogos", r.gpu.nome, `${r.gpu.nivel}${r.gpu.vram ? ` · ${fmt(r.gpu.vram)} VRAM` : ""}`, r.gpu.pontos),
+      peca("Placa gráfica", "jogos", r.gpu.nome, `${r.gpu.nivel}${r.gpu.vram ? `, ${fmt(r.gpu.vram)} de VRAM` : ""}`, r.gpu.pontos),
       peca("Processador", "sistema", r.cpu.nome, r.cpu.exata ? "Desempenho em jogos" : "Modelo não está na tabela: valor aproximado",
         r.cpu.pontos, !r.cpu.exata));
 
@@ -1060,6 +1125,230 @@ paginas.jogos = {
           h("small", { class: j.falta_vram ? "vram-aviso" : "", text: nota })),
         h("span", { class: "distintivo " + garg[1], text: garg[0] }));
     }));
+  },
+};
+
+/* ---------- Modo Boost ---------- */
+
+paginas.boost = {
+  estado: null, ocupado: false, verTodos: false, guardar: null,
+
+  async iniciar() {
+    $("#bst-botao").addEventListener("click", () => this.estado?.ativo ? this.desativar() : this.ativar());
+    $("#bst-plano").addEventListener("click", () => {
+      if (this.estado?.ativo) return;
+      const t = $("#bst-plano");
+      t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true"));
+      this.guardarPreferencias();
+    });
+    $("#ilha-boost").addEventListener("click", () => mostrar("boost"));
+    ouvir("boost", ({ i, n, nome }) => {
+      $("#bst-botao").style.setProperty("--pct", n ? 100 * (i + .5) / n : 50);
+      $("#bst-desc").textContent = `A fechar ${nome}…`;
+    });
+    $("#bst-lista").replaceChildren(...Array.from({ length: 5 }, () => paginas.arranque.esqueleto()));
+    setInterval(() => this.relogio(), 20000);
+    this.carregar(); // o estado fica guardado entre sessões: a ilha aparece logo ao abrir a app
+  },
+
+  mostrar() { if (!this.ocupado) this.carregar(); },
+
+  async carregar() {
+    let r;
+    try {
+      r = await api().boost_estado();
+    } catch (e) {
+      r = { erro: String(e) };
+    }
+    if (r.erro) {
+      $("#bst-lista").replaceChildren(erroInline(`Não foi possível ler os programas abertos: ${r.erro}`, () => this.carregar()));
+      return;
+    }
+    this.estado = r;
+    $("#bst-plano").setAttribute("aria-checked", String(r.plano_alto));
+    this.desenhar();
+  },
+
+  selecao() { return this.estado.candidatos.filter(c => c.ligado).map(c => c.exe); },
+
+  guardarPreferencias() {
+    clearTimeout(this.guardar);
+    this.guardar = setTimeout(() => api().boost_preferencias(this.selecao(), $("#bst-plano").getAttribute("aria-checked") === "true"), 400);
+    this.numeros();
+  },
+
+  relogio() {
+    const r = this.estado;
+    const t = r?.ativo && r.desde ? duracao(Math.max(60, Date.now() / 1000 - r.desde)) : "—";
+    $("#bst-tempo").textContent = t;
+    $("#ilha-tempo").textContent = r?.ativo ? t : "";
+  },
+
+  numeros() {
+    const r = this.estado;
+    const lista = r.ativo ? r.fechados : r.candidatos.filter(c => c.ligado && c.aberto);
+    const mem = lista.reduce((s, c) => s + (c.mem || 0), 0);
+    $("#bst-num-rotulo").lastChild.textContent = r.ativo ? "RAM libertada" : "Ao ativar";
+    contar($("#bst-ram"), mem, v => (mem ? "~" : "") + fmt(v), 700);
+    $("#bst-ram-sub").textContent = r.ativo ? "usada pelos programas que o Boost fechou"
+      : mem ? "de RAM usada pelos programas escolhidos que estão abertos" : "Nenhum dos programas escolhidos está aberto";
+    contar($("#bst-n"), lista.length, v => `${Math.round(v)}`, 500);
+    $("#bst-n-txt").textContent = r.ativo ? (lista.length === 1 ? "programa fechado" : "programas fechados")
+      : (lista.length === 1 ? "programa a fechar" : "programas a fechar");
+    this.relogio();
+  },
+
+  desenhar() {
+    const r = this.estado;
+    const ativo = r.ativo;
+    $("#bst-hero").classList.toggle("ativo", ativo);
+    const b = $("#bst-botao");
+    b.setAttribute("aria-pressed", String(ativo));
+    $("#bst-botao-txt").textContent = ativo ? "Desativar" : "Ativar";
+    $("#bst-estado-txt").textContent = ativo ? "Ativo" : "Desligado";
+    $("#bst-titulo").textContent = ativo ? "Bom jogo" : "Pronto para jogar";
+    $("#bst-desc").textContent = ativo
+      ? `Quando acabar, carregue em Desativar para voltar a abrir os programas${r.plano_boost ? " e repor o plano de energia" : ""}.`
+      : "Escolha em baixo o que fechar. Os programas fecham como se carregasse no X, por isso os que tiverem trabalho por guardar vão perguntar primeiro.";
+    $("#bst-plano").disabled = ativo;
+    $("#bst-plano-txt").replaceChildren(...(ativo && r.plano_boost
+      ? ["Plano de energia: ", h("b", { text: r.plano_boost })]
+      : ["Mudar para ", h("b", { text: "Alto desempenho" }), " enquanto estiver ativo"]));
+
+    // ilha na barra lateral e ponto no menu
+    $("#ilha-boost").hidden = !ativo;
+    const item = $('.item[data-pagina="boost"]');
+    if (ativo && !$(".vivo", item)) item.append(h("span", { class: "vivo", "aria-hidden": "true" }));
+    if (!ativo) $(".vivo", item)?.remove();
+
+    this.numeros();
+    this.lista();
+  },
+
+  linha(c, i, fechado = false) {
+    const tog = fechado ? null : h("button", { class: "toggle", role: "switch", "aria-checked": String(c.ligado), "aria-label": c.nome });
+    tog?.addEventListener("click", () => {
+      c.ligado = !c.ligado;
+      tog.setAttribute("aria-checked", String(c.ligado));
+      this.guardarPreferencias();
+    });
+    const desc = fechado ? `${fmt(c.mem || 0)} libertados` : c.categoria;
+    const marca = fechado ? h("span", { class: "distintivo ativo", text: "Fechado pelo Boost" })
+      : c.aberto && c.mem ? h("span", { class: "linha-valor cheio", text: fmt(c.mem), title: "Memória que está a usar agora" }) : null;
+    return h("div", { class: "linha boost-linha entrar" + (fechado ? " fechado" : ""), style: `--i:${Math.min(i, 14)}` },
+      tog || h("span", { class: "tile" }, icone("ok")),
+      h("div", { class: "linha-texto" }, h("div", { class: "linha-nome", text: c.nome }), h("div", { class: "linha-desc", text: desc })),
+      marca);
+  },
+
+  lista() {
+    const r = this.estado;
+    const caixa = $("#bst-lista");
+    if (r.ativo) {
+      caixa.replaceChildren(h("div", { class: "grupo-titulo" }, h("span", { text: "Vão voltar a abrir quando desativar" })),
+        ...(r.fechados.length ? r.fechados.map((c, i) => this.linha(c, i, true))
+          : [vazio("boost", "Nenhum programa foi fechado.", "Nenhum dos programas escolhidos estava aberto quando ativou o Boost.")]));
+      return;
+    }
+    const abertos = r.candidatos.filter(c => c.aberto);
+    const outros = r.candidatos.filter(c => !c.aberto);
+    const partes = [h("div", { class: "grupo-titulo" }, h("span", { text: "Abertos agora" }),
+      h("span", { text: "Ligado = fecha ao ativar" }))];
+    if (abertos.length) partes.push(...abertos.map((c, i) => this.linha(c, i)));
+    else partes.push(vazio("boost", "Nenhum programa da lista está aberto.", "Pode escolher já o que fechar no futuro, em baixo."));
+    if (outros.length) {
+      const botao = h("button", { class: "mostrar-mais", "aria-expanded": String(this.verTodos) }, icone("chevron"),
+        h("span", { text: `Programas que não estão abertos (${outros.length})` }));
+      botao.addEventListener("click", () => { this.verTodos = !this.verTodos; this.lista(); });
+      partes.push(botao);
+      if (this.verTodos) partes.push(...outros.map((c, i) => this.linha(c, i)));
+    }
+    caixa.replaceChildren(...partes);
+  },
+
+  async ativar() {
+    if (this.ocupado) return;
+    await this.carregar(); // a lista pode ter mudado desde que a página abriu
+    const r = this.estado;
+    const alvos = r.candidatos.filter(c => c.ligado && c.aberto);
+    const plano = $("#bst-plano").getAttribute("aria-checked") === "true";
+    if (!alvos.length && !plano) {
+      alerta("Nada para fazer", "Nenhum dos programas escolhidos está aberto e a mudança de plano de energia está desligada.");
+      return;
+    }
+    const sim = await dialogo({
+      titulo: "Ativar o Modo Boost",
+      texto: alvos.length ? "Vão ser fechados:" : "Nenhum dos programas escolhidos está aberto. Só vai mudar o plano de energia.",
+      itens: alvos.map(c => `${c.nome}${c.mem ? ` (${fmt(c.mem)})` : ""}`),
+      nota: (alvos.length ? "Os programas com trabalho por guardar vão perguntar antes de fechar. " : "")
+        + (plano ? "O plano de energia passa para Alto desempenho." : ""),
+      ok: "Ativar Boost", icone: "boost",
+    });
+    if (!sim) return;
+
+    this.ocupado = true;
+    const b = $("#bst-botao");
+    b.disabled = true;
+    b.classList.add("a-trabalhar");
+    b.style.setProperty("--pct", 4);
+    $("#bst-botao-txt").textContent = "A fechar…";
+    let res;
+    try {
+      res = await api().boost_ativar(r.candidatos.filter(c => c.ligado).map(c => c.exe), plano);
+    } catch (e) {
+      res = { erro: String(e) };
+    }
+    b.style.setProperty("--pct", 100);
+    if (!res.erro && res.resistentes?.length) {
+      const forcar = await dialogo({
+        titulo: res.resistentes.length === 1 ? "Um programa não fechou" : "Alguns programas não fecharam",
+        texto: "Ainda estão abertos:",
+        itens: res.resistentes.map(c => c.nome),
+        nota: "Podem estar à espera que guarde alterações. Veja primeiro se há alguma janela a perguntar. Se forçar, perde o que não estiver guardado.",
+        ok: "Forçar fecho", cancelar: "Deixar abertos", perigo: true, icone: "aviso",
+      });
+      if (forcar) {
+        const f = await api().boost_forcar(res.resistentes);
+        res.fechados.push(...(f.fechados || []));
+        if (f.falhas?.length) avisar(`Não foi possível fechar: ${f.falhas.join(", ")}`, "aviso");
+      }
+    }
+    b.classList.remove("a-trabalhar");
+    b.disabled = false;
+    this.ocupado = false;
+    if (res.erro) {
+      alerta("Não foi possível ativar", res.erro, true);
+    } else {
+      const mem = res.fechados.reduce((s, c) => s + (c.mem || 0), 0);
+      avisar(res.fechados.length ? `Boost ativo: ${res.fechados.length} ${res.fechados.length === 1 ? "programa fechado" : "programas fechados"}, ~${fmt(mem)} libertados.`
+        : "Boost ativo.", "ok");
+      if (res.sem_plano_alto) avisar("O plano Alto desempenho não existe neste PC. Pode adicioná-lo na página Energia.", "aviso");
+    }
+    await this.carregar();
+  },
+
+  async desativar() {
+    if (this.ocupado) return;
+    this.ocupado = true;
+    const b = $("#bst-botao");
+    carregar(b, true);
+    $("#bst-botao-txt").textContent = "A repor…";
+    let res;
+    try {
+      res = await api().boost_desativar();
+    } catch (e) {
+      res = { erro: String(e) };
+    }
+    carregar(b, false);
+    this.ocupado = false;
+    if (res.erro) {
+      alerta("Não foi possível desativar", res.erro, true);
+    } else {
+      const n = res.reabertos.length;
+      avisar(n ? `Boost desligado: ${n} ${n === 1 ? "programa reaberto" : "programas reabertos"}.` : "Boost desligado.", "ok");
+      if (res.falhas.length) alerta("Alguns programas não reabriram", `Abra-os à mão: ${res.falhas.join(", ")}.`);
+    }
+    await this.carregar();
   },
 };
 
@@ -1203,8 +1492,7 @@ paginas.energia = {
 async function iniciar() {
   $$(".item").forEach(b => b.addEventListener("click", () => mostrar(b.dataset.pagina)));
   addEventListener("resize", moverIndicador);
-  ativarSpotlight();
-  ativarMagnetico();
+  $("#telemetria").addEventListener("click", () => mostrar("monitor"));
 
   const info = await api().info();
   window.__admin = info.admin;

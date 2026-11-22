@@ -3,8 +3,10 @@ import ctypes
 import json
 import os
 import threading
+import webbrowser
 
 import arranque
+import boost
 import energia
 import espaco
 import jogos
@@ -219,6 +221,59 @@ class Api:
     def espaco_cancelar(self):
         self._cancelar_espaco.set()
         return True
+
+    # --- driver da gráfica ---------------------------------------------
+
+    def abrir_pagina_driver(self, fabricante):
+        # só abre as páginas oficiais conhecidas, nunca um endereço vindo da interface
+        url = sistema.PAGINAS_DRIVERS.get(fabricante)
+        if not url:
+            return {"ok": False, "erro": "Fabricante desconhecido."}
+        webbrowser.open(url)
+        return {"ok": True}
+
+    # --- modo Boost ------------------------------------------------------
+
+    def boost_estado(self):
+        try:
+            est = boost.ler_estado()
+            ativo = bool(est.get("ativo"))
+            return {
+                "ativo": ativo, "desde": est.get("desde"), "fechados": est.get("fechados", []) if ativo else [],
+                "plano_alto": est.get("plano_alto", True), "plano_boost": est.get("plano_boost") if ativo else None,
+                "candidatos": boost.candidatos(est.get("selecao")),
+            }
+        except Exception as e:
+            return {"erro": str(e)}
+
+    def boost_preferencias(self, selecao, plano_alto):
+        boost.guardar_preferencias([str(s) for s in selecao], bool(plano_alto))
+        return {"ok": True}
+
+    def boost_ativar(self, selecao, plano_alto):
+        if not self._trabalho.acquire(blocking=False):
+            return {"erro": "Está outra operação a decorrer. Espere que termine."}
+        try:
+            if boost.ler_estado().get("ativo"):
+                return {"erro": "O Boost já está ativo."}
+            return boost.ativar([str(s) for s in selecao], bool(plano_alto),
+                                lambda i, n, nome: self._emitir("boost", {"i": i, "n": n, "nome": nome}))
+        except Exception as e:
+            return {"erro": str(e)}
+        finally:
+            self._trabalho.release()
+
+    def boost_forcar(self, lista):
+        try:
+            return boost.forcar_resistentes(list(lista))
+        except Exception as e:
+            return {"erro": str(e)}
+
+    def boost_desativar(self):
+        try:
+            return boost.desativar()
+        except Exception as e:
+            return {"erro": str(e)}
 
     def abrir_pasta(self, pasta):
         # só abre o Explorador numa pasta que existe; não altera nada

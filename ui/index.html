@@ -34,6 +34,8 @@
     <symbol id="i-externo" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
     <symbol id="i-voltar" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-boost" viewBox="0 0 24 24"><path d="M4.2 17.5a8.5 8.5 0 1 1 15.6 0"/><path d="m12 15.5 4.2-5"/><circle cx="12" cy="16" r="1.6"/><path d="M12 6v1.2M6.5 9l.9.8M17.5 9l-.9.8"/></symbol>
+    <symbol id="i-chip" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="11" rx="2.5"/><path d="M7 18v2.5M17 18v2.5M3 4.5h3"/><circle cx="15.5" cy="12.5" r="2.5"/><path d="M7 11h3M7 14h3"/></symbol>
   </defs>
 </svg>
 
@@ -52,11 +54,32 @@
       <button class="item" data-pagina="monitor" title="Monitorização"><svg class="ic"><use href="#i-monitor"/></svg><span>Monitorização</span></button>
       <button class="item" data-pagina="sistema" title="Sistema"><svg class="ic"><use href="#i-sistema"/></svg><span>Sistema</span></button>
       <button class="item" data-pagina="jogos" title="Jogos"><svg class="ic"><use href="#i-jogos"/></svg><span>Jogos</span></button>
+      <button class="item" data-pagina="boost" title="Modo Boost"><svg class="ic"><use href="#i-boost"/></svg><span>Modo Boost</span></button>
       <button class="item" data-pagina="arranque" title="Arranque"><svg class="ic"><use href="#i-arranque"/></svg><span>Arranque</span></button>
       <button class="item" data-pagina="energia" title="Energia"><svg class="ic"><use href="#i-energia"/></svg><span>Energia</span></button>
     </nav>
 
     <div class="rodape">
+      <button class="telemetria" id="telemetria" title="Abrir Monitorização" aria-label="Utilização agora. Abrir Monitorização.">
+        <span class="tm" data-k="cpu">
+          <span class="tm-nome">Processador</span><span class="tm-valor">—</span>
+          <svg class="tm-linha" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true"><path d=""/></svg>
+          <span class="tm-barra"><i></i></span>
+        </span>
+        <span class="tm" data-k="ram">
+          <span class="tm-nome">Memória</span><span class="tm-valor">—</span>
+          <span class="tm-barra"><i></i></span>
+        </span>
+        <span class="tm" data-k="disco">
+          <span class="tm-nome">Disco <span id="tm-letra">C:</span></span><span class="tm-valor">—</span>
+          <span class="tm-barra"><i></i></span>
+        </span>
+      </button>
+      <button class="ilha" id="ilha-boost" hidden title="O Modo Boost está ativo. Clique para gerir.">
+        <span class="ilha-led" aria-hidden="true"></span>
+        <span class="ilha-txt">Boost ativo</span>
+        <span class="ilha-tempo" id="ilha-tempo"></span>
+      </button>
       <div class="admin" id="admin"></div>
       <p class="admin-nota" id="admin-nota" hidden>Algumas pastas e programas do Windows não vão poder ser alterados.</p>
       <p class="versao" id="versao"></p>
@@ -106,18 +129,20 @@
             </div>
           </article>
 
-          <article class="cartao stat" data-spot style="--i:2">
-            <span class="rotulo"><svg class="ic"><use href="#i-arranque"/></svg>Programas de arranque</span>
-            <div class="metrica media" id="ini-arranque"><span class="esqueleto"></span></div>
-            <p class="sub" id="ini-arranque-sub">&nbsp;</p>
-            <button class="link" data-ir="arranque">Gerir arranque <svg class="ic"><use href="#i-seta"/></svg></button>
-          </article>
-
-          <article class="cartao stat" data-spot style="--i:3">
-            <span class="rotulo"><svg class="ic"><use href="#i-energia"/></svg>Plano de energia</span>
-            <div class="metrica texto" id="ini-energia"><span class="esqueleto"></span></div>
-            <p class="sub">Plano ativo neste momento</p>
-            <button class="link" data-ir="energia">Mudar plano <svg class="ic"><use href="#i-seta"/></svg></button>
+          <!-- dois factos do PC numa só peça, separados por uma linha, em vez de dois cartões iguais -->
+          <article class="cartao stats-duplo">
+            <div class="stat">
+              <span class="rotulo"><svg class="ic"><use href="#i-arranque"/></svg>Programas de arranque</span>
+              <div class="metrica media" id="ini-arranque"><span class="esqueleto"></span></div>
+              <p class="sub" id="ini-arranque-sub">&nbsp;</p>
+              <button class="link" data-ir="arranque">Gerir arranque</button>
+            </div>
+            <div class="stat">
+              <span class="rotulo"><svg class="ic"><use href="#i-energia"/></svg>Plano de energia</span>
+              <div class="metrica texto" id="ini-energia"><span class="esqueleto"></span></div>
+              <p class="sub">Plano ativo neste momento</p>
+              <button class="link" data-ir="energia">Mudar plano</button>
+            </div>
           </article>
 
           <article class="cartao resultados-cartao" style="--i:4">
@@ -166,7 +191,7 @@
               <div>
                 <span class="rotulo"><svg class="ic"><use href="#i-monitor"/></svg>Processador</span>
                 <div class="metrica" id="mon-cpu">—</div>
-                <p class="sub">Utilização total · últimos 2 minutos</p>
+                <p class="sub">Utilização total nos últimos 2 minutos</p>
               </div>
             </div>
             <div class="grafico" id="mon-grafico">
@@ -264,7 +289,11 @@
             <span class="rotulo"><svg class="ic"><use href="#i-jogos"/></svg>Ecrã e jogos</span>
             <dl class="ficha" id="sis-ecra"></dl>
           </article>
-          <article class="cartao sis-discos" style="--i:4">
+          <article class="cartao sis-driver" data-spot style="--i:4">
+            <span class="rotulo"><svg class="ic"><use href="#i-chip"/></svg>Driver da gráfica</span>
+            <div id="sis-driver"></div>
+          </article>
+          <article class="cartao sis-discos" style="--i:5">
             <h3 class="cartao-titulo">Discos físicos</h3>
             <div id="sis-discos"></div>
           </article>
@@ -310,6 +339,56 @@
           Isto é uma estimativa, não uma medição. Compara o seu hardware com médias públicas de benchmarks, sem ray
           tracing nem upscaling (DLSS/FSR). O valor real varia com o mapa, os drivers, a temperatura e o que estiver
           aberto em segundo plano.
+        </p>
+      </section>
+
+      <!-- Modo Boost -->
+      <section class="pagina" id="pagina-boost">
+        <header class="cabecalho">
+          <h1>Modo Boost</h1>
+          <p>Fecha os programas de que não precisa enquanto joga e volta a abri-los quando acabar.</p>
+        </header>
+
+        <div class="bento bento-boost">
+          <article class="cartao boost-hero" id="bst-hero" data-spot style="--i:0">
+            <div class="boost-texto">
+              <span class="boost-estado" id="bst-estado"><span class="boost-led" aria-hidden="true"></span><span id="bst-estado-txt">Desligado</span></span>
+              <h2 id="bst-titulo">Pronto para jogar</h2>
+              <p id="bst-desc">Escolha em baixo o que fechar. Os programas fecham como se carregasse no X, por isso os que
+                 tiverem trabalho por guardar vão perguntar primeiro.</p>
+              <div class="boost-opcao">
+                <button class="toggle" id="bst-plano" role="switch" aria-checked="true" aria-labelledby="bst-plano-txt"></button>
+                <span id="bst-plano-txt">Mudar para <b>Alto desempenho</b> enquanto estiver ativo</span>
+              </div>
+            </div>
+            <button class="boost-botao" id="bst-botao" aria-pressed="false" aria-describedby="bst-desc">
+              <svg class="boost-anel" viewBox="0 0 140 140" aria-hidden="true">
+                <circle class="trilho" cx="70" cy="70" r="64"/>
+                <g class="arco-grupo"><circle class="arco" cx="70" cy="70" r="64"/></g>
+              </svg>
+              <span class="boost-nucleo">
+                <svg class="ic"><use href="#i-boost"/></svg>
+                <span id="bst-botao-txt">Ativar</span>
+              </span>
+            </button>
+          </article>
+
+          <article class="cartao boost-numeros" data-spot style="--i:1">
+            <span class="rotulo" id="bst-num-rotulo"><svg class="ic"><use href="#i-memoria"/></svg>Ao ativar</span>
+            <div class="metrica" id="bst-ram"><span class="esqueleto"></span></div>
+            <p class="sub" id="bst-ram-sub">de RAM usada pelos programas escolhidos</p>
+            <div class="boost-mini">
+              <div><b id="bst-n">—</b><span id="bst-n-txt">programas a fechar</span></div>
+              <div><b id="bst-tempo">—</b><span>ativo há</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="cartao lista" id="bst-lista" style="--i:2"></div>
+        <p class="nota" style="--i:3">
+          O Boost não torna a placa gráfica nem o processador mais rápidos. Ajuda sobretudo a evitar engasgos e quebras de
+          FPS causadas por programas em segundo plano (browsers com muitos separadores, sincronizações, launchers a
+          atualizar). O próprio jogo e os programas do Windows nunca aparecem nesta lista.
         </p>
       </section>
 

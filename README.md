@@ -20,6 +20,9 @@ O Windows pode mostrar o aviso "O Windows protegeu o seu PC" porque o exe não �
 - Analisador de espaço: mostra as pastas que mais ocupam em cada disco (só lê, não apaga nada)
 - Página Sistema com o hardware do PC e recomendações (ex.: RAM abaixo da velocidade por ter o XMP/EXPO desligado,
   ecrã abaixo da taxa máxima, Modo de Jogo, saúde dos discos)
+- Versão e idade do driver da placa gráfica, com link para a página oficial da AMD, NVIDIA ou Intel
+- Modo Boost: fecha os programas escolhidos antes de jogar (como carregar no X), muda para Alto desempenho
+  e volta a abrir tudo no fim
 - Estimativa de FPS em jogos populares a partir da placa gráfica e do processador (é uma estimativa, não uma medição)
 - Ligar/desligar programas de arranque (igual ao Gestor de Tarefas, não apaga nada)
 - Trocar o plano de energia

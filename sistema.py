@@ -6,6 +6,7 @@ import re
 import subprocess
 import winreg
 from ctypes import wintypes
+from datetime import date
 
 CREATE_NO_WINDOW = 0x08000000
 HKLM, HKCU = winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER
@@ -56,9 +57,43 @@ def _reg(raiz, chave, valor, padrao=None):
         return padrao
 
 
-def vram_por_gpu():
-    """O Win32_VideoController limita a VRAM a 4 GB, por isso lê-se do registo do controlador."""
-    base = r"SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
+PAGINAS_DRIVERS = {
+    "amd": "https://www.amd.com/pt/support/download/drivers.html",
+    "nvidia": "https://www.nvidia.com/pt-br/drivers/",
+    "intel": "https://www.intel.com/content/www/us/en/support/detect.html",
+}
+NOMES_FABRICANTES = {"amd": "AMD", "nvidia": "NVIDIA", "intel": "Intel"}
+
+
+def fabricante_gpu(nome):
+    n = (nome or "").lower()
+    if any(x in n for x in ("nvidia", "geforce", "quadro", "rtx", "gtx")):
+        return "nvidia"
+    if any(x in n for x in ("amd", "radeon", "ati ")):
+        return "amd"
+    if any(x in n for x in ("intel", "arc ", "iris", "uhd graphics")):
+        return "intel"
+    return None
+
+
+def versao_comercial(fab, versao_windows, radeon=None):
+    """Converte a versão interna do Windows para o número que aparece no site do fabricante."""
+    if fab == "amd" and radeon:
+        return radeon  # ex.: 26.8.1 (AMD Software: Adrenalin Edition)
+    if fab == "nvidia":
+        # 32.0.15.6094 -> 560.94 (os últimos 5 algarismos dos dois últimos grupos)
+        partes = (versao_windows or "").split(".")
+        if len(partes) == 4:
+            d = (partes[2] + partes[3].zfill(4))[-5:]
+            if d.isdigit():
+                return f"{int(d[:3])}.{d[3:]}"
+    return versao_windows or None
+
+
+def controladores_gpu():
+    """Lê do registo do controlador de cada placa: VRAM (o Win32_VideoController limita a 4 GB),
+    versão e data do driver."""
+    base = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
     res = {}
     try:
         with winreg.OpenKey(HKLM, base) as k:
@@ -71,16 +106,55 @@ def vram_por_gpu():
                 i += 1
                 if not sub.isdigit():
                     continue
-                nome = _reg(HKLM, rf"{base}\{sub}", "DriverDesc")
-                mem = _reg(HKLM, rf"{base}\{sub}", "HardwareInformation.qwMemorySize")
+                chave = rf"{base}\{sub}"
+                nome = _reg(HKLM, chave, "DriverDesc")
+                if not nome:
+                    continue
+                mem = _reg(HKLM, chave, "HardwareInformation.qwMemorySize")
                 if mem is None:
-                    m = _reg(HKLM, rf"{base}\{sub}", "HardwareInformation.MemorySize")
+                    m = _reg(HKLM, chave, "HardwareInformation.MemorySize")
                     mem = int.from_bytes(m, "little") if isinstance(m, bytes) else m
-                if nome and mem:
-                    res[nome] = int(mem)
+                res[nome] = {
+                    "vram": int(mem) if mem else None,
+                    "versao": _reg(HKLM, chave, "DriverVersion"),
+                    "data": _data_driver(_reg(HKLM, chave, "DriverDate")),
+                    "radeon": _reg(HKLM, chave, "RadeonSoftwareVersion"),
+                }
     except OSError:
         pass
     return res
+
+
+def _data_driver(texto):
+    """O registo guarda a data como 'M-D-AAAA'. Devolve 'AAAA-MM-DD'."""
+    m = re.fullmatch(r"(\d{1,2})-(\d{1,2})-(\d{4})", (texto or "").strip())
+    return f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}" if m else None
+
+
+def idade_dias(data_iso):
+    if not data_iso:
+        return None
+    try:
+        return max(0, (date.today() - date.fromisoformat(data_iso)).days)
+    except ValueError:
+        return None
+
+
+def driver(nome, ctl, versao_wmi=""):
+    fab = fabricante_gpu(nome)
+    ctl = ctl or {}
+    versao_win = ctl.get("versao") or versao_wmi
+    dias = idade_dias(ctl.get("data"))
+    return {
+        "fabricante": fab,
+        "fabricante_nome": NOMES_FABRICANTES.get(fab, ""),
+        "versao": versao_comercial(fab, versao_win, ctl.get("radeon")),
+        "versao_windows": versao_win,
+        "data": ctl.get("data"),
+        "dias": dias,
+        "estado": None if dias is None else "ok" if dias < 183 else "aviso" if dias < 365 else "antigo",
+        "pagina": PAGINAS_DRIVERS.get(fab),
+    }
 
 
 class _DEVMODEW(ctypes.Structure):
@@ -190,6 +264,14 @@ def dicas(info):
         res.append(("info", "Agendamento de GPU acelerado por hardware desligado",
                     "Pode ligá-lo em Definições > Sistema > Ecrã > Gráficos. Ajuda em algumas placas recentes "
                     "e é necessário para a Geração de Frames da NVIDIA."))
+    for g in info.get("gpus", []):
+        drv = g.get("driver") or {}
+        if drv.get("dias") is not None and drv["dias"] >= 183:
+            meses = drv["dias"] // 30
+            res.append(("aviso" if drv["dias"] >= 365 else "info",
+                        f"O driver da {g['nome']} tem {meses} meses",
+                        f"Os drivers novos trazem correções e mais desempenho nos jogos recentes. "
+                        f"Transfira a versão mais recente na página da {drv['fabricante_nome'] or 'marca da placa'}."))
     for d in info.get("discos_fisicos", []):
         if d["saude"] and d["saude"] not in ("Healthy", "0"):
             res.append(("aviso", f"O disco {d['nome']} reporta problemas",
@@ -205,13 +287,15 @@ def dicas(info):
 
 def informacao():
     d = _powershell()
-    vram = vram_por_gpu()
+    ctl = controladores_gpu()
     gpus = []
     for g in _lista(d.get("gpu")):
         nome = (g.get("Name") or "").strip()
         if not nome or "basic display" in nome.lower() or "virtual" in nome.lower():
             continue
-        gpus.append({"nome": nome, "driver": g.get("DriverVersion") or "", "vram": vram.get(nome)})
+        c = ctl.get(nome) or {}
+        gpus.append({"nome": nome, "vram": c.get("vram"),
+                     "driver": driver(nome, c, g.get("DriverVersion") or "")})
     cpu = d.get("cpu") or {}
     info = {
         "cpu": {"nome": (cpu.get("Name") or "").strip(), "nucleos": cpu.get("NumberOfCores"),
